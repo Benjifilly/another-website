@@ -15,7 +15,7 @@
             --bg-color: #F9F9F9;
             --card-bg: #FFFFFF;
         }
-        
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -26,21 +26,31 @@
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             transition: background-color 0.3s, color 0.3s;
         }
+
         .light-theme {
-            background-color: #ffffff;
-            color: #333333;
-        }
-        .dark-theme {
-            background-color: #333333;
-            color: #ffffff;
+            --bg-color: #F9F9F9;
+            --text-color: #333;
+            --card-bg: #FFFFFF;
+            --nav-bg: #FFFFFF;
         }
 
-	.theme-switch {
+        .dark-theme {
+            --bg-color: #333;
+            --text-color: #FFF;
+            --card-bg: #444;
+            --nav-bg: #000;
+        }
+
+        .theme-switch {
             position: absolute;
             top: 10px;
             right: 10px;
+            cursor: pointer;
+            font-size: 1.5em;
         }
 
         .container {
@@ -82,7 +92,7 @@
         }
 
         .nav {
-            background-color: white;
+            background-color: var(--nav-bg);
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             position: sticky;
             top: 0;
@@ -295,13 +305,53 @@
                 width: 90%;
             }
         }
+
+        .quantity-control {
+            display: flex;
+            align-items: center;
+        }
+
+        .quantity-control button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.2em 0.5em;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .quantity-control input {
+            width: 40px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+
+        .currency-selector {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 1em;
+        }
+
     </style>
 </head>
 <body class="light-theme">
+    <div class="theme-switch" onclick="toggleTheme()">🌓</div>
+    <div class="currency-selector">
+        <select id="currency-selector" onchange="convertCurrency()">
+            <option value="USD" selected>USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+        </select>
+    </div>
     <header class="header">
-        <h1>Sleek Modern Shop</h1>
+        <div class="container">
+            <h1>Shop</h1>
+        </div>
     </header>
-    <button class="theme-switch" onclick="toggleTheme()">Switch Theme</button>
+
     <nav class="nav">
         <ul>
             <li><a href="#home">Home</a></li>
@@ -310,117 +360,101 @@
             <li><a href="#contact">Contact</a></li>
         </ul>
     </nav>
-    <main class="container">
-        <section id="products" class="product-grid">
-            <!-- Product cards will be dynamically added here -->
-        </section>
-    </main>
-    <button class="cart-button" onclick="openCart()">🛒<span class="cart-count">0</span></button>
-    <div id="cartModal" class="modal">
+
+    <section id="products" class="container">
+        <div class="product-grid">
+            <!-- Example Product Card -->
+            <div class="product-card">
+                <div class="product-image" style="background-image: url('https://via.placeholder.com/250');"></div>
+                <div class="product-info">
+                    <h3 class="product-title">Product 1</h3>
+                    <p class="product-price" data-price="100">100 USD</p>
+                    <button class="add-to-cart" onclick="addToCart('Product 1', 100)">Add to Cart</button>
+                </div>
+            </div>
+            <!-- Add more product cards as needed -->
+        </div>
+    </section>
+
+    <button class="cart-button" onclick="toggleCartModal()">🛒<span class="cart-count" id="cart-count">0</span></button>
+
+    <div id="cart-modal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeCart()">&times;</span>
+            <span class="close" onclick="toggleCartModal()">&times;</span>
             <h2>Your Cart</h2>
             <div id="cart-items"></div>
-            <div id="cart-total">Total: $0.00</div>
-            <button class="checkout-btn" onclick="checkout()">Checkout</button>
+            <p id="cart-total">Total: 0 USD</p>
+            <button class="checkout-btn">Checkout</button>
         </div>
     </div>
+
     <script>
-        // Sample product data with actual image URLs
-        const products = [
-            { id: 1, name: "Sleek Smartphone", price: 499.99, image: "/api/placeholder/300/200" },
-            { id: 2, name: "Ultra Laptop", price: 999.99, image: "/api/placeholder/300/200" },
-            { id: 3, name: "Smart Watch", price: 199.99, image: "/api/placeholder/300/200" },
-            { id: 4, name: "Wireless Earbuds", price: 149.99, image: "/api/placeholder/300/200" },
-            { id: 5, name: "4K Smart TV", price: 799.99, image: "/api/placeholder/300/200" },
-            { id: 6, name: "Gaming Console", price: 399.99, image: "/api/placeholder/300/200" }
-        ];
+        let cart = [];
+        let currencyRate = { USD: 1, EUR: 0.85, GBP: 0.75 };
+        let selectedCurrency = 'USD';
 
-        const cart = [];
+        function addToCart(productName, productPrice) {
+            let existingProduct = cart.find(item => item.name === productName);
+            if (existingProduct) {
+                existingProduct.quantity++;
+            } else {
+                cart.push({ name: productName, price: productPrice, quantity: 1 });
+            }
+            updateCart();
+        }
 
-        function displayProducts() {
-            const productGrid = document.querySelector('.product-grid');
-            productGrid.innerHTML = '';
-            products.forEach(product => {
-                const productCard = document.createElement('div');
-                productCard.classList.add('product-card');
-                productCard.innerHTML = `
-                    <div class="product-image" style="background-image: url(${product.image})"></div>
-                    <div class="product-info">
-                        <h3 class="product-title">${product.name}</h3>
-                        <p class="product-price">$${product.price.toFixed(2)}</p>
-                        <button class="add-to-cart" onclick="addToCart(${product.id})">Add to Cart</button>
+        function updateCart() {
+            let cartItemsDiv = document.getElementById('cart-items');
+            let cartCount = document.getElementById('cart-count');
+            let cartTotal = document.getElementById('cart-total');
+
+            cartItemsDiv.innerHTML = '';
+            let total = 0;
+            cart.forEach(item => {
+                let itemTotal = item.price * item.quantity;
+                total += itemTotal;
+
+                cartItemsDiv.innerHTML += `
+                    <div class="cart-item">
+                        <span>${item.name}</span>
+                        <div class="quantity-control">
+                            <button onclick="updateQuantity('${item.name}', -1)">-</button>
+                            <input type="text" value="${item.quantity}" readonly>
+                            <button onclick="updateQuantity('${item.name}', 1)">+</button>
+                        </div>
+                        <span>${(itemTotal * currencyRate[selectedCurrency]).toFixed(2)} ${selectedCurrency}</span>
                     </div>
                 `;
-                productGrid.appendChild(productCard);
             });
+
+            cartCount.innerText = cart.reduce((total, item) => total + item.quantity, 0);
+            cartTotal.innerText = `Total: ${(total * currencyRate[selectedCurrency]).toFixed(2)} ${selectedCurrency}`;
         }
 
-        function addToCart(productId) {
-            const product = products.find(p => p.id === productId);
-            const existingItem = cart.find(item => item.id === productId);
-            if (existingItem) {
-                existingItem.quantity++;
-            } else {
-                cart.push({ ...product, quantity: 1 });
+        function updateQuantity(productName, change) {
+            let product = cart.find(item => item.name === productName);
+            if (product) {
+                product.quantity += change;
+                if (product.quantity <= 0) {
+                    cart = cart.filter(item => item.name !== productName);
+                }
+                updateCart();
             }
-            updateCartCount();
         }
 
-        function updateCartCount() {
-            const cartCount = document.querySelector('.cart-count');
-            cartCount.textContent = cart.reduce((total, item) => total + item.quantity, 0);
+        function toggleCartModal() {
+            let cartModal = document.getElementById('cart-modal');
+            cartModal.style.display = cartModal.style.display === 'block' ? 'none' : 'block';
         }
 
-        function openCart() {
-            const modal = document.getElementById('cartModal');
-            const cartItems = document.getElementById('cart-items');
-            const cartTotal = document.getElementById('cart-total');
-            
-            cartItems.innerHTML = '';
-            let total = 0;
-            
-            cart.forEach(item => {
-                const itemElement = document.createElement('div');
-                itemElement.classList.add('cart-item');
-                itemElement.innerHTML = `
-                    <span>${item.name} x${item.quantity}</span>
-                    <span>$${(item.price * item.quantity).toFixed(2)}</span>
-                `;
-                cartItems.appendChild(itemElement);
-                total += item.price * item.quantity;
-            });
-            
-            cartTotal.textContent = `Total: $${total.toFixed(2)}`;
-            modal.style.display = 'block';
+        function convertCurrency() {
+            selectedCurrency = document.getElementById('currency-selector').value;
+            updateCart();
         }
 
-        function closeCart() {
-            const modal = document.getElementById('cartModal');
-            modal.style.display = 'none';
-        }
-
-        function checkout() {
-            alert('Thank you for your purchase!');
-            cart.length = 0;
-            updateCartCount();
-            closeCart();
-        }
-
-	function toggleTheme() {
-            document.body.classList.toggle('light-theme');
+        function toggleTheme() {
             document.body.classList.toggle('dark-theme');
-        }
-
-        // Initialize the page
-        displayProducts();
-
-        // Close the modal if clicked outside of it
-        window.onclick = function(event) {
-            const modal = document.getElementById('cartModal');
-            if (event.target == modal) {
-                closeCart();
-            }
+            document.body.classList.toggle('light-theme');
         }
     </script>
 </body>
